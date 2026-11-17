@@ -1,0 +1,11 @@
+{
+  "name": "aquarefresh",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node backend/server.mjs",
+    "test": "node --test"
+  }
+}
