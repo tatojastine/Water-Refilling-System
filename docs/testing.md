@@ -1,47 +1,48 @@
 # Tests and acceptance checks
 
-Run `npm test` from the project folder with Node.js 24. The suite starts an HTTP server with a disposable data file. Use the IPC transport if loopback TCP is restricted.
+Install locked dependencies from each app folder, then run these commands from the project root:
 
 ```powershell
-$env:AQUA_TEST_TRANSPORT = 'ipc'
-npm test
-Remove-Item Env:AQUA_TEST_TRANSPORT
+npm --prefix backend test
+npm --prefix frontend test
+npm --prefix frontend run build
 ```
 
-## Automated coverage
+The backend uses Vitest and Supertest. Health routing is tested without connecting to Atlas. The frontend uses Vitest, jsdom, and React Testing Library to check the startup component. Use local synthetic fixtures and keep live data and secrets out of tests.
 
-| Scenario | Expected result |
+| ID | What the test covers |
 | --- | --- |
-| Owner bootstrap | A fresh station allows one local owner registration. Remote and repeated attempts are denied. |
-| Account isolation | Customers have distinct profiles and can view or update only their own orders. An older tab cannot write on behalf of an account that signed in later. |
-| Authentication | Register, sign out, and sign in with registered credentials. Shared demo sign-in is rejected. Email is normalized and stored credential fields stay out of API responses. |
-| Clean starting state | Three refill products are listed with zero stock. Orders and station supplies are empty. |
-| Legacy data | An explicitly supplied old demo file is rejected and preserved. |
-| Checkout and stock | The API confirms prices, reserves stock, rejects stock conflicts, and releases cancelled reservations. |
-| Simulated payment | Failed GCash simulation leaves orders and stock unchanged. A retry can place the order. |
-| Fulfillment and restart | Delivery and pickup follow their own transitions. Accounts and station data survive a restart. |
+| B-T1 | A well-formed email is accepted. |
+| B-T2 | A malformed email is rejected. |
+| B-T3 | Health returns HTTP 200 and exactly `{"status":"ok"}` without storage access. |
+| B-T4 | A standard delivery includes the expected delivery fee. |
+| B-T5 | A 5-gallon refill waives the delivery fee. |
+| F-T1 | Startup shows AquaRefresh and the wake-up message. |
+| F-T2 | Retry makes a new session request and opens the app on success. |
+| F-T3 | A connection failure is explained and the UI offers recovery. |
 
 ## Verification record
 
-| Check | Result | Evidence |
+| Check | Status | Evidence |
 | --- | --- | --- |
-| HTTP regression suite | **PASS** | Node.js 24.21.0 on Windows over IPC. 18 passed, 0 failed, 0 skipped. |
-| Local owner connection rule | **PASS** | Named-pipe tests injected peer address metadata to exercise the loopback rule. |
-| Real browser walkthrough | **NOT RUN** | Browser layout, keyboard interaction, and theme rendering remain unverified in a real browser. |
+| Core HTTP regression suite | PASS | 19 passed over Windows named pipes using the Node test runner. Coverage includes exact-origin CORS. |
+| Required backend behaviors | PASS, independent checks | Five behaviors verified with Node. |
+| Backend framework suite | NOT RUN | The five Vitest cases are authored. npm registry DNS blocked dependency installation. Obtain a passing Vitest run before S6. |
+| Frontend framework and production build | NOT RUN | The three Testing Library cases are authored. npm registry DNS blocked dependency installation. Run both before S7 and before merging. |
+| Hosted and browser evidence | Pending | Verify the live URLs and collect browser screenshots separately. |
 
-## Manual browser walkthrough
-
-Use the [local start instructions](../README.md) with an empty working data file. Use fictional details. For a disposable run, set the following before starting:
+Reproduce the supplemental HTTP run from the project root on Windows:
 
 ```powershell
-$env:AQUA_DATA_FILE = Join-Path $env:TEMP ("aqua-" + [guid]::NewGuid() + ".json")
-npm start
+$env:AQUA_TEST_TRANSPORT = 'ipc'
+node --test tests/http.test.mjs
+Remove-Item Env:AQUA_TEST_TRANSPORT
 ```
 
-1. Open [AquaRefresh](http://127.0.0.1:8765). Select **Set up as station owner**, create an account, and check that orders and supplies are empty, and add stock to a refill size.
-2. Sign out. Verify that customer signup remains available and the owner signup option is closed. Create a customer account.
-3. Switch between light and dark mode. Reload and sign out. Verify the selected theme persists in the same browser.
-4. Place a delivery order using a stocked refill. Simulate a GCash failure and retry. Open My orders and check that exactly one new order appears.
-5. Sign out and create a second customer account using another email. Check that its order list is empty and its profile belongs to the second account.
-6. Sign in again as the owner. Move the first customer's delivery to **On Delivery**, then **Completed**. Reload and verify that the order stays completed.
-7. Try the sign-in and checkout screens using Tab and Enter. Repeat on a narrow screen to check forms, navigation, and order tables.
+See the [Activity 15 checklist](activity15.md) for the intentionally red then green PR and the complete screenshot list.
+
+## Manual browser checks
+
+Start both local services from the README. Bootstrap one owner, check that orders and supplies are empty, stock a refill, and sign out. Use two customer accounts and confirm that their orders and profiles stay separate. Try a failed simulated GCash checkout, retry, then fulfill the successful order as owner. Refresh to confirm data stays saved.
+
+Test a delayed request, an interrupted request and successful retry, an empty list, invalid form fields, keyboard input, and the app at 375 px. Check body-text contrast in both themes and inspect the actual title and favicon. Repeat the relevant checks on the deployed app and use mobile data on a real phone.

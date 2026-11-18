@@ -12,7 +12,7 @@ The Node backend owns account identity, order ownership, pricing, stock, and ord
 | Starting records | The catalog contains three refill products with prices and zero available stock. Users, orders, and station supplies start empty. |
 | Storage | The default path is `backend/data/accounts-state.json`. Set `AQUA_DATA_FILE` to use another path. Older demo JSON is rejected with a message if explicitly supplied. |
 
-`backend/server.mjs` serves assets and routes. `backend/accounts.mjs` handles credentials and registration. `backend/domain.mjs` owns business rules. `backend/store.mjs` loads and commits data.
+`backend/app.mjs` creates the HTTP app separately from the listener. `backend/server.mjs` loads environment configuration, selects data storage, and listens. `backend/accounts.mjs` handles credentials and registration. `backend/domain.mjs` owns business rules. `backend/store.mjs` supports local JSON. `backend/mongo-store.mjs` stores deployment data in MongoDB when `MONGODB_URI` is set.
 
 ## API reference
 
@@ -20,7 +20,7 @@ Requests use JSON. A failure returns `{"error":{"code":"…","message":"…"}}`.
 
 | Request | Access | Success |
 | --- | --- | --- |
-| `GET /api/health` | Any | 200 after the store loads |
+| `GET /api/health` | Any | 200 with `{"status":"ok"}`, without accessing the store |
 | `GET /api/session` | Any | 200 with `{role,state,ownerRegistrationOpen,account}` |
 | `POST /api/register` | Customer signup or one-time local owner setup | 201, creates an account and starts a session |
 | `POST /api/session` | Valid email and password | 200, starts a session |
@@ -40,4 +40,4 @@ Requests use JSON. A failure returns `{"error":{"code":"…","message":"…"}}`.
 - Inventory updates include numeric `expectedStock`. A 409 means another change already updated the quantity. Existing refill names and units stay fixed.
 - Browser writes send the active account ID in X-Aqua-Account. The API returns 409 if a different account now owns the session in that browser.
 
-Run one server process per data file. Keep account data and backups outside publicly accessible paths.
+Run one server process per local JSON data file. Production requires MongoDB and the exact trusted HTTPS frontend origin. Keep account data, credentials, and backups outside publicly accessible paths. Follow the [deployment guide](deployment.md) to bootstrap the owner locally against the shared Atlas database.

@@ -1,15 +1,13 @@
 # Frontend developer work log
 
-The browser renders customer and station screens, keeps the current cart draft, and calls the same-origin API. The hero image and familiar checkout flow carry forward.
+`frontend/src/main.jsx` starts the React loading and recovery view. The refill portal renders customer and owner screens, manages the cart draft, and calls same-origin API routes. Vite provides local API forwarding and generates the Netlify API proxy rule for a hosted build. For the dependency-free local demo, the backend serves `frontend/local.html` and `frontend/local.js`. Both entry points use the same portal and session utilities.
 
-| Change | What the user sees |
+| Area | Responsibility |
 | --- | --- |
-| Local owner setup | The owner registration option is available from the local setup page until the station has an owner. |
-| Separate customer accounts | Customers sign up with an email and password and see their own profile and orders. |
-| Light and dark appearance | The theme switch saves a browser preference and works on the sign-in and app screens. |
-| Clean starting screens | The owner sees empty order and supply lists. Refill products become available when the owner adds stock. |
-| Checkout and inventory safeguards | In-flight requests are guarded. A stale inventory update prompts the owner to review the current stock. |
+| Startup | Show the server wake-up message, explain connection failures, and retry the session request |
+| Customer portal | Sign up, sign in, order, view fulfillment, and edit the customer profile |
+| Owner portal | Search inventory, update availability, and advance station orders |
+| Appearance | Keep light and dark preferences in the browser and use AquaRefresh's tab title and icon |
+| Verification | Cover startup text, retry interaction, and error recovery with React Testing Library |
 
-`frontend/index.html` loads the application. `frontend/app.js` renders views and manages forms and the draft cart. `frontend/api.js` wraps requests and API errors. `frontend/style.css` defines the light and dark palettes. The server confirms checkout totals and permissions.
-
-See the [manual browser walkthrough](testing.md#manual-browser-walkthrough) for registration, ordering, and theme changes.
+Use the [testing guide](testing.md) for UI evidence and [deployment runbook](deployment.md) for the API proxy settings.
