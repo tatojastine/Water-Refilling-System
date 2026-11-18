@@ -6,7 +6,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, method = 'GET', payload, accountId) {
+export async function request(path, method = 'GET', payload, accountId, signal = AbortSignal.timeout(90_000)) {
   let response;
   let body;
   try {
@@ -16,11 +16,19 @@ export async function request(path, method = 'GET', payload, accountId) {
     response = await fetch(`/api${path}`, {
       method,
       headers,
+      signal,
       body: payload === undefined ? undefined : JSON.stringify(payload),
     });
+  } catch (error) {
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') throw error;
+    throw new ApiError(0, 'CONNECTION_ERROR', 'We couldn’t reach the station server. Try again.');
+  }
+
+  try {
     body = await response.json();
-  } catch {
-    throw new ApiError(0, 'CONNECTION_ERROR', 'Connection lost. Check AquaRefresh is running, then try again.');
+  } catch (error) {
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') throw error;
+    if (response.ok) throw new ApiError(0, 'INVALID_RESPONSE', 'The station server returned an unreadable response.');
   }
 
   if (!response.ok) {

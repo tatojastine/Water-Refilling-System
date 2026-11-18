@@ -53,9 +53,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .pending, .low { background: var(--warn-bg); color: var(--warn-ink); }
 .completed, .paid, .in-stock { background: var(--ok-bg); color: var(--ok-ink); }
 .cancelled { background: var(--danger-bg); color: var(--danger-ink); }
-.bar i { background: linear-gradient(#77c7ff, var(--blue)); }
+.bar i { background: var(--blue); }
 .hero.has-image {
-  background-image: linear-gradient(90deg, #06182eee, #0922414d 80%), url(hero.png);
+  background-image: linear-gradient(90deg, #06182ef7, #092241bd 70%), url(hero.png);
 }
 #notice { background: light-dark(#102746, #c8e3ff); color: light-dark(#ffffff, #07111e); }
 
@@ -86,6 +86,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   font-weight: 700;
 }
 .theme-toggle span:first-child { font-size: 1rem; line-height: 1; }
+.hero { background-color: #0a2140; background-image: none; }
+.drop::after {
+  content: "";
+  display: block;
+  inline-size: 15px;
+  block-size: 18px;
+  border-radius: 65% 50% 65% 60%;
+  border-start-start-radius: 0;
+  rotate: 45deg;
+  background: #fff;
+}
+.connection { max-width: 600px; }
+.connection .btn { justify-self: start; }
+.field-error { color: var(--danger-ink); }
+[aria-invalid="true"] { border-color: var(--danger-ink); }
 .auth-options {
   display: flex;
   flex-wrap: wrap;
@@ -98,4 +113,27 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width: 510px) {
   .top-actions { justify-content: space-between; width: 100%; }
   .auth-main { padding: 21px; }
+  .hero h2, .hero p, .btn, .bar { overflow-wrap: anywhere; }
+  .bars { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .table table, .table tbody, .table tr { display: block; }
+  .table thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .table tr { padding-block: 7px; border-block-end: 1px solid var(--line); }
+  .table td {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .table td::before { content: attr(data-label); color: var(--muted); font-weight: 700; }
+  .table td .btn, .table td .tag { justify-self: start; }
 }

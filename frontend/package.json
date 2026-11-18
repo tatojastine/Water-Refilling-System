@@ -1,0 +1,26 @@
+{
+  "name": "aquarefresh-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "jsdom": "^27.0.1",
+    "vite": "^7.1.11",
+    "vitest": "5.1.1"
+  }
+}

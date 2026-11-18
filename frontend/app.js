@@ -20,23 +20,22 @@ let authMode = 'signin';
 let page = 'home';
 let state = null;
 let busy = false;
-let ready = false;
-let startupError = '';
 let cart = {}, method = 'Delivery', address = '', payment = 'Cash';
 let filter = 'All', activeId = null, editing = null, inventoryId = null, search = '', paymentError = '', failure = false;
 let imageReady = false;
 const heroImage = new Image();
 heroImage.onload = () => { imageReady = true; document.querySelectorAll('.hero').forEach(el=>el.classList.add('has-image')); };
-heroImage.src = 'hero.png';
+const heroUrl = new URL('./hero.png', import.meta.url).href;
+heroImage.src = heroUrl;
 const statuses = ['Pending','On Delivery','Ready for Pickup','Completed','Cancelled'];
-const customerNav = [['home','⌂','Home'],['order','＋','Place order'],['orders','▤','My orders'],['profile','○','Profile']];
-const adminNav = [['dashboard','⌂','Dashboard'],['orders','▤','Orders'],['inventory','▥','Inventory']];
+const customerNav = [['home','Home'],['order','Place order'],['orders','My orders'],['profile','Profile']];
+const adminNav = [['dashboard','Dashboard'],['orders','Orders'],['inventory','Inventory']];
 const buttons = (label,action,value='',style='',disabled=false) =>
   '<button type="button" class="btn '+style+'" data-action="'+action+'" data-value="'+escape(value)+'"'+(disabled?' disabled':'')+'>'+escape(label)+'</button>';
 const go = (label, value, style='') => buttons(label,'go',value,style);
 const tag = (value) => '<span class="tag '+value.toLowerCase().replaceAll(' ','-')+'">'+escape(value)+'</span>';
 const title = (name,desc) => '<header class="heading"><h1>'+name+'</h1><p>'+desc+'</p></header>';
-const brand = '<div class="brand"><span class="drop" aria-hidden="true">◈</span>AquaRefresh</div>';
+const brand = '<div class="brand"><span class="drop" aria-hidden="true"></span>AquaRefresh</div>';
 const hero = (content) => '<section class="hero '+(imageReady?'has-image':'')+'">'+content+'</section>';
 const message = (text) => '<div class="error" role="alert">'+escape(text)+'</div>';
 function notify(text) {
@@ -69,14 +68,12 @@ function themeLabel() {
 }
 
 function themeButton() {
-  const icon = currentTheme()==='dark'?'&#9728;':'&#9790;';
-  return '<button type="button" class="theme-toggle" data-action="theme"><span aria-hidden="true">'+icon+'</span><span>'+themeLabel()+'</span></button>';
+  return '<button type="button" class="theme-toggle" data-action="theme">'+themeLabel()+'</button>';
 }
 
 function updateThemeButtons() {
   for (const button of document.querySelectorAll('[data-action="theme"]')) {
-    button.firstElementChild.innerHTML = currentTheme()==='dark'?'&#9728;':'&#9790;';
-    button.lastElementChild.textContent = themeLabel();
+    button.textContent = themeLabel();
   }
 }
 
@@ -123,7 +120,7 @@ function home() {
   return title('Welcome, '+escape(state.profile.name.split(' ')[0])+'.','Browse purified water refills and choose delivery or station pickup.')+
     hero('<h2>Fresh water, made simple.</h2><p>Get free delivery on orders that include a 5-gallon refill.</p>'+go('Order a refill','order'))+
     '<h2>Shop water refills</h2><div class="grid">'+catalog(state).map((p) =>
-      '<article class="product"><div class="visual" aria-hidden="true">'+(imageReady?'<img alt="" src="hero.png">':'💧')+'</div><h3>'+escape(p.name)+'</h3><p>'+peso(p.price)+' · '+p.stock+' available</p>'+buttons(p.stock?'Add to order':'Sold out','add',p.id,'',!p.stock)+'</article>').join('')+'</div>';
+      '<article class="product"><div class="visual" aria-hidden="true"><img alt="" src="'+heroUrl+'"></div><h3>'+escape(p.name)+'</h3><p>'+peso(p.price)+' · '+p.stock+' available</p>'+buttons(p.stock?'Add to order':'Sold out','add',p.id,'',!p.stock)+'</article>').join('')+'</div>';
 }
 function draftItems() {
   const order = editing === null ? null : state.orders.find((o)=>o.id===editing);
@@ -168,11 +165,13 @@ function checkout() {
 const orderNumber = (id) => String(id).padStart(4,'0');
 function visibleOrders() { return [...state.orders].sort((a,b)=>b.id-a.id); }
 function table(orders) {
-  return orders.length?'<div class="table"><table><thead><tr><th scope="col">Order</th><th scope="col">'+(role==='admin'?'Customer':'Date')+
+  const customerLabel = role==='admin'?'Customer':'Date';
+  return orders.length?'<div class="table"><table><thead><tr><th scope="col">Order</th><th scope="col">'+customerLabel+
     '</th><th scope="col">Status</th><th scope="col">Total</th><th scope="col"><span class="sr">Details</span></th></tr></thead><tbody>'+
-    orders.map((o)=>'<tr><td>#'+orderNumber(o.id)+'</td><td>'+escape(role==='admin'?o.customer:date(o.created))+'</td><td>'+tag(o.status)+'</td><td>'+
-      peso(o.total)+'</td><td>'+buttons('View','detail',o.id,'secondary')+'</td></tr>').join('')+'</tbody></table></div>':
-    '<p class="empty">No orders match this view.</p>';
+    orders.map((o)=>'<tr><td data-label="Order">#'+orderNumber(o.id)+'</td><td data-label="'+customerLabel+'">'+escape(role==='admin'?o.customer:date(o.created))+'</td><td data-label="Status">'+tag(o.status)+'</td><td data-label="Total">'+
+      peso(o.total)+'</td><td data-label="Details">'+buttons('View','detail',o.id,'secondary')+'</td></tr>').join('')+'</tbody></table></div>':
+    '<div class="empty">'+(filter!=='All'?'No orders match this status. Select All to see every order.':
+      role==='admin'?'No refill orders yet. New customer orders appear here.':'No orders yet. Place a refill order to start.')+'</div>';
 }
 function ordersPage() {
   return title(role==='admin'?'Orders':'My orders',role==='admin'?'Review and update refill orders.':'Check the progress of your refill orders.')+
@@ -224,9 +223,9 @@ function inventory() {
     '<section class="panel stack"><form id="search" class="row"><label>Search inventory<input name="search" value="'+escape(search)+'" placeholder="Product or supply"></label><div>'+
     '<button class="btn secondary">Search</button> '+buttons('Add supply','inventory-edit','new')+'</div></form>'+
     '<div class="table"><table><thead><tr><th>Item</th><th>Available</th><th>Restock level</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+
-    list.map((p)=>'<tr><td>'+escape(p.name)+'</td><td>'+p.stock+' '+escape(p.unit)+'</td><td>'+p.min+'</td><td>'+
-    (p.stock<=p.min?'<span class="tag low">Low stock</span>':tag('In stock'))+'</td><td>'+buttons('Edit','inventory-edit',p.id,'secondary')+'</td></tr>').join('')+
-    '</tbody></table></div>'+(list.length?'':'<p>No matching supplies or products.</p>')+'</section>'+
+    list.map((p)=>'<tr><td data-label="Item">'+escape(p.name)+'</td><td data-label="Available">'+p.stock+' '+escape(p.unit)+'</td><td data-label="Restock level">'+p.min+'</td><td data-label="Status">'+
+    (p.stock<=p.min?'<span class="tag low">Low stock</span>':tag('In stock'))+'</td><td data-label="Actions">'+buttons('Edit','inventory-edit',p.id,'secondary')+'</td></tr>').join('')+
+    '</tbody></table></div>'+(list.length?'':'<p>No inventory items match your search. Clear the search to see all items.</p>')+'</section>'+
     (inventoryId===null?'':'<br><form id="inventory-form" class="panel stack"><h2>'+(item?'Edit '+escape(item.name):'Add station supply')+'</h2>'+
       (item?'<input type="hidden" name="expectedStock" value="'+item.stock+'">':'')+
       (item?.price!==undefined?'':'<label>Name<input name="name" required maxlength="60" value="'+escape(item?.name)+'"></label><label>Unit<input name="unit" required maxlength="20" value="'+escape(item?.unit)+'" placeholder="pcs"></label>')+
@@ -240,20 +239,15 @@ function profile() {
     '<label>Default delivery address<textarea name="address" maxlength="250">'+escape(state.profile.address)+'</textarea></label><div><button class="btn">Save profile</button></div></form>';
 }
 function render() {
-  if (!ready || startupError) {
-    $('#app').innerHTML = '<main class="content"><div class="panel stack">'+brand+
-      (startupError?message(startupError)+buttons('Try again','retry'):'<p role="status">Connecting to AquaRefresh…</p>')+'</div></main>';
-    return;
-  }
   if (!role) { $('#app').innerHTML = auth(); return; }
   const screens = {home,order:orderForm,checkout,orders:ordersPage,detail,confirmed:()=>detail(true),dashboard,inventory,profile};
   const nav = role==='admin'?adminNav:customerNav;
   const name = role==='admin'?account.name:state.profile.name;
   const section = ['detail','confirmed'].includes(page)?'orders':page==='checkout'?'order':page;
   $('#app').innerHTML = '<div class="layout"><aside class="sidebar"><div>'+brand+
-    '<small>Water refilling station</small></div><nav class="nav" aria-label="Main navigation">'+nav.map(([route,icon,label])=>
-    '<button type="button" data-action="go" data-value="'+route+'" '+(route===section?'aria-current="page"':'')+'><span aria-hidden="true">'+icon+'</span>'+label+'</button>').join('')+
-    '</nav><button class="signout" type="button" data-action="logout">↪ Sign out</button></aside><div class="shell"><header class="top"><small>'+
+    '<small>Water refilling station</small></div><nav class="nav" aria-label="Main navigation">'+nav.map(([route,label])=>
+    '<button type="button" data-action="go" data-value="'+route+'" '+(route===section?'aria-current="page"':'')+'>'+label+'</button>').join('')+
+    '</nav><button class="signout" type="button" data-action="logout">Sign out</button></aside><div class="shell"><header class="top"><small>'+
     (role==='admin'?'Station management':'Customer portal')+'</small><div class="top-actions">'+themeButton()+'<strong><span class="avatar" aria-hidden="true">'+escape(name.charAt(0).toUpperCase())+'</span>'+escape(name)+
     '</strong></div></header><main class="content">'+screens[page]()+'</main></div></div>';
   $('main h1')?.setAttribute('tabindex','-1');
@@ -312,15 +306,6 @@ async function perform(operation, onError = (error) => notify(error.message)) {
   }
 }
 
-function loadSession() {
-  return perform(async () => {
-    startupError = '';
-    const session = await request('/session');
-    ready = true;
-    setSession(session);
-  }, (error) => { startupError = error.message; render(); });
-}
-
 function submitAuthentication(data) {
   const password = data.get('password');
   const email = data.get('email');
@@ -336,6 +321,12 @@ function submitAuthentication(data) {
         if (session) setSession(session);
       }
       if (role) return;
+      if (error.code==='EMAIL_ALREADY_REGISTERED' || error.code==='INVALID_EMAIL') {
+        const field = $('#auth-form [name="email"]');
+        reportFieldError(field,error.message);
+        field.focus();
+        return;
+      }
       const alert = $('.auth-error');
       alert.textContent = error.status===0&&registering?'Connection lost. Try signing in with the account you just entered before registering again.':error.message;
       alert.hidden = false;
@@ -388,7 +379,6 @@ document.addEventListener('click',(event)=>{
   const {action,value} = button.dataset;
   if (action==='theme') return toggleTheme();
   if (busy) return;
-  if (action==='retry') return loadSession();
   if (!role && action==='auth-mode' && (['signin','customer'].includes(value) || (value==='admin'&&ownerRegistrationOpen))) {
     authMode = value;
     render();
@@ -436,7 +426,39 @@ document.addEventListener('click',(event)=>{
   }
   if (action==='inventory-close') { inventoryId=null; render(); }
 });
+function clearFieldError(field) {
+  const errorId = field.dataset.fieldError;
+  if (!errorId) return;
+  document.getElementById(errorId)?.remove();
+  const description = (field.getAttribute('aria-describedby') || '').split(' ').filter((id)=>id && id!==errorId);
+  if (description.length) field.setAttribute('aria-describedby',description.join(' '));
+  else field.removeAttribute('aria-describedby');
+  field.removeAttribute('aria-invalid');
+  delete field.dataset.fieldError;
+}
+
+function reportFieldError(field, text) {
+  clearFieldError(field);
+  const error = document.createElement('small');
+  error.id = field.form.id+'-'+field.name+'-error';
+  error.className = 'field-error';
+  error.textContent = text;
+  error.setAttribute('role','alert');
+  field.insertAdjacentElement('afterend',error);
+  field.dataset.fieldError = error.id;
+  field.setAttribute('aria-invalid','true');
+  const description = field.getAttribute('aria-describedby');
+  field.setAttribute('aria-describedby',[description,error.id].filter(Boolean).join(' '));
+}
+
+document.addEventListener('invalid',(event)=>{
+  const field = event.target;
+  if (!field.matches('#app input, #app textarea, #app select')) return;
+  reportFieldError(field,field.validationMessage);
+},true);
+
 document.addEventListener('input',(event)=>{
+  if (event.target.matches('#app [aria-invalid="true"]')) clearFieldError(event.target);
   if (event.target.matches('#delivery [name="address"]')) address = event.target.value;
 });
 document.addEventListener('change',(event)=>{
@@ -462,7 +484,12 @@ document.addEventListener('submit',(event)=>{
   const form=event.target, data=new FormData(form);
   if (form.id==='auth-form'&&!role) return submitAuthentication(data);
   if (form.id==='delivery'&&role==='customer') {
-    if (method==='Delivery'&&!address.trim()) return notify('Enter your delivery address.');
+    if (method==='Delivery'&&!address.trim()) {
+      const field = form.elements.namedItem('address');
+      reportFieldError(field,'Enter your delivery address.');
+      field.focus();
+      return;
+    }
     paymentError=''; navigate('checkout');
   }
   if (form.id==='checkout'&&role==='customer') return placeOrder();
@@ -482,6 +509,6 @@ document.addEventListener('submit',(event)=>{
   });
 });
 
-render();
-
-void loadSession();
+export function mountPortal(session) {
+  setSession(session);
+}

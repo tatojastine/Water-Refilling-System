@@ -14,7 +14,7 @@ function requestOverIpc(socketPath, path, method, headers, data) {
       try {
         const chunks = [];
         for await (const chunk of response) chunks.push(chunk);
-        resolve(new Response(Buffer.concat(chunks), {
+        resolve(new Response(response.statusCode === 204 ? null : Buffer.concat(chunks), {
           status: response.statusCode,
           headers: response.headers,
         }));
@@ -31,7 +31,7 @@ const ownerInput = { role: 'admin', name: 'Station Owner', email: 'owner@example
 const customerInput = { role: 'customer', name: 'First Customer', email: 'first@example.test', password: 'Another fixture passphrase 123!' };
 const secondInput = { ...customerInput, name: 'Second Customer', email: 'second@example.test' };
 
-async function fixture(t, { localOnly = true, initialData, ipcPeer = '127.0.0.1' } = {}) {
+async function fixture(t, { localOnly = true, initialData, ipcPeer = '127.0.0.1', clientUrl } = {}) {
   const folder = await mkdtemp(join(tmpdir(), 'aquarefresh-test-'));
   const dataFile = join(folder, 'state.json');
   if (initialData !== undefined) await writeFile(dataFile, JSON.stringify(initialData));
@@ -48,7 +48,7 @@ async function fixture(t, { localOnly = true, initialData, ipcPeer = '127.0.0.1'
   }
 
   async function start() {
-    server = await createApp({ dataFile, localOnly });
+    server = await createApp({ dataFile, localOnly, clientUrl });
     if (useIpc || ipcPeer !== '127.0.0.1') {
       // Named-pipe clients expose no IP. Inject peer metadata at the socket in this test server only.
       server.prependListener('request', (request) => {
@@ -79,7 +79,7 @@ async function fixture(t, { localOnly = true, initialData, ipcPeer = '127.0.0.1'
   async function request(path, { method = 'GET', cookie, body, headers: customHeaders = {} } = {}) {
     const headers = { ...customHeaders };
     if (cookie) headers.cookie = cookie;
-    if (method !== 'GET') headers.origin = base;
+    if (method !== 'GET') headers.origin ??= base;
     if (body !== undefined) headers['content-type'] = 'application/json';
     const data = body === undefined ? undefined : JSON.stringify(body);
     if (socketPath) return requestOverIpc(socketPath, path, method, { ...headers, host: 'localhost' }, data);
@@ -154,6 +154,39 @@ test('normal entry serves the frontend, hero asset and JSON health endpoint', as
   assert.equal((await app.api('/api/health')).status, 'ok');
 });
 
+test('CORS allows only the configured frontend origin and same-origin proxy writes still work', async (t) => {
+  const clientUrl = 'https://aquarefresh.example.test';
+  const app = await fixture(t, { clientUrl });
+  const unrelated = 'https://unrelated.example.test';
+  const preflight = (origin) => app.request('/api/register', {
+    method: 'OPTIONS', headers: {
+      origin,
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'content-type',
+    },
+  });
+
+  const allowed = await preflight(clientUrl);
+  assert.equal(allowed.status, 204);
+  assert.equal(allowed.headers.get('access-control-allow-origin'), clientUrl);
+  assert.equal(allowed.headers.get('access-control-allow-credentials'), 'true');
+  assert.match(allowed.headers.get('vary') ?? '', /\borigin\b/i);
+
+  const rejected = await preflight(unrelated);
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.headers.get('access-control-allow-origin'), null);
+
+  const crossOrigin = await app.api('/api/register', {
+    method: 'POST', body: customerInput, headers: { origin: clientUrl },
+  }, 201);
+  assert.equal(crossOrigin.headers.get('access-control-allow-origin'), clientUrl);
+  assert.equal(crossOrigin.headers.get('access-control-allow-credentials'), 'true');
+  await app.api('/api/register', { method: 'POST', body: secondInput, headers: { origin: unrelated } }, 403);
+
+  const proxied = await app.api('/api/register', { method: 'POST', body: secondInput }, 201);
+  assert.equal(proxied.account.email, secondInput.email);
+});
+
 test('registered email credentials, session cookies, logout, and role boundaries', async (t) => {
   const app = await fixture(t);
   const anonymous = await app.api('/api/session');
@@ -218,11 +251,14 @@ test('simultaneous owner setup allows exactly one owner and remains closed after
 });
 
 test('owner setup is unavailable when the server runs in network mode', async (t) => {
-  const app = await fixture(t, { localOnly: false });
+  const clientUrl = 'https://aquarefresh.example.test';
+  const app = await fixture(t, { localOnly: false, clientUrl });
+  const headers = { origin: clientUrl };
   assert.equal((await app.api('/api/session')).ownerRegistrationOpen, false);
-  const blocked = await app.api('/api/register', { method: 'POST', body: ownerInput }, 403);
+  const blocked = await app.api('/api/register', { method: 'POST', body: ownerInput, headers }, 403);
   assert.equal(blocked.error.code, 'OWNER_REGISTRATION_LOCAL_ONLY');
-  assert.equal((await app.register(customerInput)).role, 'customer');
+  const registered = await app.api('/api/register', { method: 'POST', body: customerInput, headers }, 201);
+  assert.equal(registered.role, 'customer');
 });
 
 test('owner setup requires a local socket peer even when a request claims to be local', async (t) => {
@@ -295,7 +331,8 @@ test('stale account writes cannot update the profile associated with a newer ses
 test('explicitly configured legacy data is rejected without being overwritten', async (t) => {
   const legacy = { inventory: [], orders: [], next: 1, profile: { name: 'Old account', address: '' } };
   const app = await fixture(t, { initialData: legacy });
-  const rejected = await app.api('/api/health', {}, 503);
+  assert.equal((await app.api('/api/health')).status, 'ok');
+  const rejected = await app.api('/api/session', {}, 503);
   assert.equal(rejected.error.code, 'LEGACY_DATA_FILE');
   assert.equal(await app.readData(), JSON.stringify(legacy));
 });

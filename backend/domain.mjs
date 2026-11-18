@@ -40,7 +40,7 @@ function stockField(value, label) {
   return value;
 }
 
-function quote(items, method) {
+export function quote(items, method) {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const fee = method === 'Delivery' && !items.some((item) => item.id === 'large') ? 20 : 0;
   return { subtotal, fee, total: subtotal + fee };
